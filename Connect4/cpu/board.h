@@ -7,9 +7,9 @@ typedef struct board{
     int matrix[BOARD_ROWS][BOARD_COLS];
 } board_t;
 
-board_t *board_init(size_t item_size);
+board_t *board_init();
 
-int get_disc(board_t board, int y, int x);
+int get_disc(board_t *board, int y, int x);
 
 int place_disc(board_t *board, int x, int value);
 int get_elements_in_column(board_t *board, int x);

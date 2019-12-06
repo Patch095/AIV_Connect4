@@ -2,13 +2,15 @@
 #include <string.h>
 #include <stdlib.h>
 
-board_t *board_init(size_t item_size){
+board_t *board_init(){
     board_t *new_board= malloc(sizeof(board_t));
     if(!new_board){
         return NULL;
     }
-    for(int y = 0; y < BOARD_ROWS; y++){
-        for(int x = 0; x < BOARD_COLS; x++){
+    int max_x = BOARD_COLS;
+    int max_y = BOARD_ROWS;
+    for(int y = 0; y < max_y; y++){
+        for(int x = 0; x < max_x; x++){
             new_board->matrix[y][x] = 0;
         }
     }
@@ -18,8 +20,10 @@ board_t *board_init(size_t item_size){
 int get_disc(board_t *board, int y, int x){
     int value = 5;
     //check errors
-    if(board && board->matrix){
-        if(0 <= y < BOARD_ROWS | 0 <= x < BOARD_COLS){
+    if(board){
+        int max_x = BOARD_COLS;
+        int max_y = BOARD_ROWS;
+        if(0 <= y < max_y | 0 <= x < max_x){
             value = board->matrix[y][x];
         }        
     }
@@ -32,9 +36,12 @@ int get_disc(board_t *board, int y, int x){
 
 int get_elements_in_column(board_t *board, int x){
     //check errors
-    if(board && board->matrix){
-        if(0 <= x < BOARD_COLS){
-            for(int i = 0; i < BOARD_ROWS; i++){
+    if(board){
+        int max_x = BOARD_COLS;
+        int max_y = BOARD_ROWS;
+
+        if(0 <= x < max_x){
+            for(int i = 0; i < max_y; i++){
                 int value = board->matrix[i][x];
                 if(value == 0){
                     return i;
@@ -48,10 +55,11 @@ int get_elements_in_column(board_t *board, int x){
 
 int place_disc(board_t *board, int x, int value){
     //check errors
-    if(board && board->matrix){
-        if(0 <= x < BOARD_COLS){
+    if(board){
+        int max_x = BOARD_COLS;
+        if(0 <= x < max_x){
             //check if x is a valid input
-            int index = get_elements_in_colum(board, x);
+            int index = get_elements_in_column(board, x);
             if(index == -1){
                 return 0;   //column full
             }
@@ -64,20 +72,6 @@ int place_disc(board_t *board, int x, int value){
     //if matrix[y][x] == -1 -> yellow
 
     return 0;
-}
-
-int check_four(board_t *board, int start_x, int start_y){
-    //check errors
-    if(board && board->matrix){
-        if(0 <= start_x < BOARD_COLS && 0 <= start_y && BOARD_ROWS){
-            //check if x and y are a valid inputs
-            int h_counter = check_horizontal(board, start_x, start_y);
-            if(h_counter != 0){
-                return h_counter;
-            }
-        }        
-    }
-
 }
 
 int check_horizontal(board_t *board, int start_x, int start_y){
@@ -114,7 +108,8 @@ int check_horizontal(board_t *board, int start_x, int start_y){
 
         //check right
         int right_neighbour_index = start_x + offset_right;
-        if(right_neighbour_index < BOARD_COLS){
+        int max_x = BOARD_COLS;
+        if(right_neighbour_index < max_x){
             int right_neighbour = get_disc(board, right_neighbour_index, start_y);
             if (value == right_neighbour){
                 counter ++;
@@ -130,4 +125,20 @@ int check_horizontal(board_t *board, int start_x, int start_y){
     }while(1 > 0);
 
     return 0;   //nobody win and the game continues
+}
+
+int check_four(board_t *board, int start_x, int start_y){
+    //check errors
+    int max_x = BOARD_COLS;
+    int max_y = BOARD_ROWS;
+    if(board){
+        if(0 <= start_x < max_x && 0 <= start_y < max_y){
+            //check if x and y are a valid inputs
+            int h_counter = check_horizontal(board, start_x, start_y);
+            if(h_counter != 0){
+                return h_counter;
+            }
+        }        
+    }
+    return 0;
 }
