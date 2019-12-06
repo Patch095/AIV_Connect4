@@ -18,6 +18,22 @@ int error(const char *message){
     return 1;
 }
 
+int play_turn(board_t* game_board, int x, int turn_played){
+    int y = get_elements_in_column(game_board, x);
+    if(y == -1){
+        return 0;
+    }
+
+    int player_colour = turn_played % 2;
+    if(player_colour == 0){
+        player_colour = -1;
+    }
+    place_disc(game_board, y, x, player_colour);
+    int value = get_disc(game_board, y, x);
+    //SDL_Log("x: %llu   y: %llu   value: %d\n",x, y, value);
+    return check_four(game_board, y, x);
+}
+
 int main(int argc, char **argv){
     //SDL INIT
     if(SDL_Init(SDL_INIT_VIDEO)){
@@ -38,9 +54,6 @@ int main(int argc, char **argv){
         SDL_Quit();
         return 1;
     }
-    //set game loop
-    uint8_t turn_played = 1;
-    int game_loop = 0;
 
     //draw game board
     //image datas
@@ -94,11 +107,16 @@ int main(int argc, char **argv){
             rects[i].y = (max_y * height) -  (y * height) - offset/2;
             rects[i].w = width;
             rects[i].h = height;
-            SDL_Log("rects: %d\n x: %d\n y: %d", i, rects[i].x, rects[i].y);
+            //SDL_Log("rects: %d\n x: %d\n y: %d", i, rects[i].x, rects[i].y);
             i++;
         }
     }
 
+    //set game loop
+    uint8_t turn_played = 1;
+    int game_loop = 0;
+    int player_colour = 0;
+    int turn = 0;
     //game loop
     while(game_loop == 0){
         //escape
@@ -107,9 +125,73 @@ int main(int argc, char **argv){
             if(event.type == SDL_QUIT){
                 SDL_Quit();
                 return 0;
+            }else if(event.type == SDL_KEYUP){
+                switch (event.key.keysym.sym)
+                {                
+                    case SDLK_1:
+                        turn = play_turn(game_board, 0, turn_played);
+                        if(turn == 0){
+                            turn_played++;
+                        }else{
+                            game_loop = turn;
+                        }
+                        break;
+                    case SDLK_2:
+                        turn = play_turn(game_board, 1, turn_played);
+                        if(turn == 0){
+                            turn_played++;
+                        }else{
+                            game_loop = turn;
+                        }
+                        break;                    
+                    case SDLK_3:
+                        turn = play_turn(game_board, 2, turn_played);
+                        if(turn == 0){
+                            turn_played++;
+                        }else{
+                            game_loop = turn;
+                        }
+                        break;                    
+                    case SDLK_4:
+                        turn = play_turn(game_board, 3, turn_played);
+                        if(turn == 0){
+                            turn_played++;
+                        }else{
+                            game_loop = turn;
+                        }
+                        break;                   
+                    case SDLK_5:
+                        turn = play_turn(game_board, 4, turn_played);
+                        if(turn == 0){
+                            turn_played++;
+                        }else{
+                            game_loop = turn;
+                        }
+                        break;                    
+                    case SDLK_6:
+                        turn = play_turn(game_board, 5, turn_played);
+                        if(turn == 0){
+                            turn_played++;
+                        }else{
+                            game_loop = turn;
+                        }
+                        break;                    
+                    case SDLK_7:
+                        turn = play_turn(game_board, 6, turn_played);
+                        if(turn == 0){
+                            turn_played++;
+                        }else{
+                            game_loop = turn;
+                        }
+                        break;
+
+                    default:
+                        break;
+                }
             }
         }
 
+        //draw game board
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
         SDL_RenderClear(renderer);
 
@@ -119,7 +201,6 @@ int main(int argc, char **argv){
         for(int y = 0; y < max_y; y++){
             for(int x = 0; x < max_x; x++){
                 int value = get_disc(game_board, y, x);
-
                 if(value == 1){
                     SDL_RenderCopy(renderer, red, NULL, &rects[i]);
                 }else if(value == -1){
@@ -127,7 +208,6 @@ int main(int argc, char **argv){
                 }else{
                     SDL_RenderCopy(renderer, empty, NULL, &rects[i]);
                 }
-
                 i++;
             }
         }
@@ -155,7 +235,6 @@ int main(int argc, char **argv){
         SDL_Log("YELLOW PLAYER WIN!");
     }
 
-    turn_played++;
     //init SDL
 
  //loop
