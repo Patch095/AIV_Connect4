@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 board_t *board_init(){
-    board_t *new_board= malloc(sizeof(board_t));
+    board_t *new_board = malloc(sizeof(board_t));
     if(!new_board){
         return NULL;
     }

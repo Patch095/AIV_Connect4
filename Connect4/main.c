@@ -18,17 +18,6 @@ int error(const char *message){
     return 1;
 }
 
-char* get_image(int value){
-    if(value == 0){
-        return EMPTY;
-    }else if(value == 1){
-        return RED;
-    }else if(value == -1){
-        return YELLOW;
-    }
-    return EMPTY;
-}
-
 int main(int argc, char **argv){
     //SDL INIT
     if(SDL_Init(SDL_INIT_VIDEO)){
@@ -52,55 +41,109 @@ int main(int argc, char **argv){
     //set game loop
     uint8_t turn_played = 1;
     int game_loop = 0;
+
+    //draw game board
+    //image datas
+    int width, height, comp;
+    unsigned char *image_empty = stbi_load(EMPTY, &width, &height, &comp, 4);
+    unsigned char *image_red = stbi_load(RED, &width, &height, &comp, 4);               
+    unsigned char *image_yellow = stbi_load(YELLOW, &width, &height, &comp, 4);                       
+    if(!image_empty | !image_red |!image_yellow){
+        return error("unable to load image");
+    }
+
+    SDL_Texture* empty = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, width, height);
+    SDL_Texture* red = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, width, height);
+    SDL_Texture* yellow = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, width, height);
+    if(!empty | !red | !yellow){
+        return error("unable to create");
+    }
+
+    Uint8 *pixels = NULL;
+    int pitch = 0;
+    //empty texture
+    if(SDL_LockTexture(empty, NULL, (void **)&pixels, &pitch)){
+        return error("unable to map texture into address space");
+    }
+    memcpy(pixels, image_empty, pitch * height);
+    free(image_empty);
+    SDL_UnlockTexture(empty);
+    //red texture
+    if(SDL_LockTexture(red, NULL, (void **)&pixels, &pitch)){
+        return error("unable to map texture into address space");
+    }
+    memcpy(pixels, image_red, pitch * height);
+    free(image_red);
+    SDL_UnlockTexture(red);
+    //yellow textures
+    if(SDL_LockTexture(yellow, NULL, (void **)&pixels, &pitch)){
+        return error("unable to map texture into address space");
+    }
+    memcpy(pixels, image_yellow, pitch * height);
+    free(image_yellow);
+    SDL_UnlockTexture(yellow);
+    //init rects
+    SDL_Rect rects[BOARD_ROWS * BOARD_COLS];
+    int max_y = BOARD_ROWS;
+    int max_x = BOARD_COLS;
+    int offset = 100;
+    int i = 0;
+    for(int y = 0; y < max_y; y++){
+        for(int x = 0; x < max_x; x++){
+            rects[i].x = (x * width) + offset;
+            rects[i].y = (max_y * height) -  (y * height) - offset/2;
+            rects[i].w = width;
+            rects[i].h = height;
+            SDL_Log("rects: %d\n x: %d\n y: %d", i, rects[i].x, rects[i].y);
+            i++;
+        }
+    }
+
     //game loop
     while(game_loop == 0){
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
-        SDL_RenderClear(renderer);
-
-
-
-        //draw game board
-        for(int y = 0; y < BOARD_ROWS; y++){
-            for(int x = 0; x < BOARD_COLS; x++){
-                int value = get_disc(game_board, y, x);
-                char *file_name = get_image(value);
-                //if(file_name != "error"){
-                    int width, height, comp;
-                    unsigned char *image = stbi_load(file_name, &width, &height, &comp, 4);               
-                    if(!image){
-                        return error("unable to load image");
-                    }
-                    SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, width, height);
-                    if(!texture){
-                        return error("unable to create");
-                    }
-
-                    Uint8 *pixels = NULL;
-                    int pitch = 0;
-                    if(SDL_LockTexture(texture, NULL, (void **)&pixels, &pitch)){
-                        return error("unable to map texture into address space");
-                    }
-                    memcpy(pixels, image, pitch * height);
-                    free(image);
-                    SDL_UnlockTexture(texture);
-
-                    SDL_Rect rect;
-                    rect.x = x * width;
-                    rect.y = y * height;
-                    rect.w = width;
-                    rect.h = height;
-                    SDL_RenderCopy(renderer, texture, NULL, &rect);
-                //}
+        //escape
+        SDL_Event event;
+        while(SDL_PollEvent(&event)){
+            if(event.type == SDL_QUIT){
+                SDL_Quit();
+                return 0;
             }
         }
 
-        //get input
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
+        SDL_RenderClear(renderer);
 
-        //update board
+        int max_y = BOARD_ROWS;
+        int max_x = BOARD_COLS;
+        int i = 0;
+        for(int y = 0; y < max_y; y++){
+            for(int x = 0; x < max_x; x++){
+                int value = get_disc(game_board, y, x);
 
-        //check four
+                if(value == 1){
+                    SDL_RenderCopy(renderer, red, NULL, &rects[i]);
+                }else if(value == -1){
+                    SDL_RenderCopy(renderer, yellow, NULL, &rects[i]);
+                }else{
+                    SDL_RenderCopy(renderer, empty, NULL, &rects[i]);
+                }
 
-        //if win(break)
+                i++;
+            }
+        }
+        //screen update
+        SDL_RenderPresent(renderer);
+
+        //get input     da fare
+        //turn_played%2
+        //disc_color == turn_played % 2
+        //1 = 1, 0 = -1
+        
+        //update board  da fare
+
+        //check four    ok
+
+        //if win(break) ok
         //else {turn_played ++
         //disc_color == turn_played % 2
         //1 = 1, 0 = -1     5 == error }
@@ -112,6 +155,7 @@ int main(int argc, char **argv){
         SDL_Log("YELLOW PLAYER WIN!");
     }
 
+    turn_played++;
     //init SDL
 
  //loop
