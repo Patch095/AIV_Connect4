@@ -5,6 +5,9 @@
 
 typedef struct board{
     int matrix[BOARD_ROWS][BOARD_COLS];
+
+    int found_four_x[4];
+    int found_four_y[4];
 } board_t;
 
 board_t *board_init();

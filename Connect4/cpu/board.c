@@ -16,6 +16,10 @@ board_t *board_init(){
             new_board->matrix[y][x] = 0;
         }
     }
+    for(int i = 0; i < 4; i++){
+        new_board->found_four_x[i] = -1;
+        new_board->found_four_y[i] = -1;
+    }
     return new_board;
 }
 
@@ -40,12 +44,10 @@ int get_elements_in_column(board_t *board, int x){
     if(board){
         int max_x = BOARD_COLS;
         int max_y = BOARD_ROWS;
-
         if(0 <= x < max_x){
             for(int i = 0; i < max_y; i++){
                 int value = board->matrix[i][x];
                 if(value == 0){
-                    //printf("value %d, x : %d, y : %d\n", value, x, i);
                     return i;
                 }
             }
@@ -78,6 +80,8 @@ int place_disc(board_t *board, int y, int x, int value){
 
 int check_horizontal(board_t *board, int start_y, int start_x){
     //set counter 
+    board->found_four_x[0] = start_x;
+    board->found_four_y[0] = start_y;
     int counter = 1;
 
     int offset_left = 1;
@@ -88,7 +92,6 @@ int check_horizontal(board_t *board, int start_y, int start_x){
     //get your color
     int value = get_disc(board, start_y, start_x);
     int max_x = BOARD_COLS;
-    printf("my colour %d, x %d - y %d\n", value, start_x, start_y);
     do{
         //unable to go left and right
         if(stop_left == 1 && stop_right == 1){
@@ -96,15 +99,14 @@ int check_horizontal(board_t *board, int start_y, int start_x){
         }
         //check left
         int left_neighbour_index = start_x - offset_left;
-        printf("next left: %d\n", left_neighbour_index);
         if(left_neighbour_index >= 0){  //neibour isn't a wall
             int left_neighbour = get_disc(board, start_y, left_neighbour_index);
             //if left_neighbour colour == your colour continue search
-            printf("left colour %d\n", left_neighbour);
-
             if (value == left_neighbour){
+                board->found_four_y[counter] = start_y;
+                board->found_four_x[counter] = left_neighbour_index;
+                
                 counter ++;
-                printf("counter %d\n", counter);
                 if(counter >= 4){
                     return value;   // win condition
                 }
@@ -114,19 +116,16 @@ int check_horizontal(board_t *board, int start_y, int start_x){
             }            
         }else{  //neighbour is a wall
             stop_left = 1;
-        }
-        
+        }   
         //check right
         int right_neighbour_index = start_x + offset_right;
-        printf("next right: %d\n", right_neighbour_index);
-
         if(right_neighbour_index < max_x){
-            int right_neighbour = get_disc(board, start_y, right_neighbour_index);
-            printf("right colour %d\n", right_neighbour);
-    
+            int right_neighbour = get_disc(board, start_y, right_neighbour_index);   
             if (value == right_neighbour){
+                board->found_four_y[counter] = start_y;
+                board->found_four_x[counter] = left_neighbour_index;
+
                 counter ++;
-                printf("counter %d\n", counter);
                 if(counter >= 4){
                     return value;   // win condition,
                 }
@@ -146,13 +145,17 @@ int check_four(board_t *board, int start_y, int start_x){
     //check errors
     int max_x = BOARD_COLS;
     int max_y = BOARD_ROWS;
-    if(board){
+    if(board){  //check if x and y are a valid inputs
         if(0 <= start_x < max_x && 0 <= start_y < max_y){
-            //check if x and y are a valid inputs
+            //check horizontal
             int h_counter = check_horizontal(board, start_y, start_x);
-            printf("horizontal = %d\n", h_counter);
             if(h_counter != 0){
                 return h_counter;
+            }else{
+                for(int i = 0; i < 4; i++){
+                    board->found_four_x[i] = -1;
+                    board->found_four_y[i] = -1;
+                }            
             }
         }        
     }
