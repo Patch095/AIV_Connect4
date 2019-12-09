@@ -10,10 +10,12 @@
 #define EMPTY "textures/empty.png"
 #define RED "textures/player1.png"
 #define YELLOW "textures/player2.png"
-
 #define GREEN "textures/win.png"
 #define RED_WIN "textures/red_win.png"
 #define YELLOW_WIN "textures/yellow_win.png"
+//init audio
+#define GAME_LOOP "audio/game_loop.wav"
+#define WIN_LOOP "audio/win_loop.wav"
 
 int error(const char *message){
     SDL_Log("%s: %s", message, SDL_GetError());
@@ -31,13 +33,12 @@ int play_turn(board_t* game_board, int x, int turn_played){
         player_colour = -1;
     }
     place_disc(game_board, y, x, player_colour);
-    int value = get_disc(game_board, y, x);
     return check_four(game_board, y, x);
 }
 
 int main(int argc, char **argv){
     //SDL INIT
-    if(SDL_Init(SDL_INIT_VIDEO)){
+    if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)){
         SDL_Log("error initializing SDL2: %s", SDL_GetError());
     }
     SDL_Window* window = SDL_CreateWindow("Connect Four", 100, 100, 1600, 900, SDL_WINDOW_SHOWN);
@@ -63,7 +64,6 @@ int main(int argc, char **argv){
     unsigned char *image_empty = stbi_load(EMPTY, &width, &height, &comp, 4);
     unsigned char *image_red = stbi_load(RED, &width, &height, &comp, 4);               
     unsigned char *image_yellow = stbi_load(YELLOW, &width, &height, &comp, 4);  
-    
     unsigned char *image_green = stbi_load(GREEN, &width, &height, &comp, 4);  
     unsigned char *image_red_win = stbi_load(RED_WIN, &win_width, &win_height, &win_comp, 4);  
     unsigned char *image_yellow_win = stbi_load(YELLOW_WIN, &win_width, &win_height, &win_comp, 4);  
@@ -74,8 +74,7 @@ int main(int argc, char **argv){
 
     SDL_Texture* empty = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, width, height);
     SDL_Texture* red = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, width, height);
-    SDL_Texture* yellow = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, width, height);
-    
+    SDL_Texture* yellow = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, width, height);  
     SDL_Texture* green = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, width, height);
     SDL_Texture* red_win = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, win_width, win_height);
     SDL_Texture* yellow_win = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, win_width, win_height);
@@ -126,7 +125,7 @@ int main(int argc, char **argv){
     if(SDL_LockTexture(yellow_win, NULL, (void **)&pixels, &pitch)){
         return error("unable to map texture into address space");
     }
-    memcpy(pixels, image_yellow, pitch * win_height);
+    memcpy(pixels, image_yellow_win, pitch * win_height);
     free(image_yellow_win);
     SDL_UnlockTexture(yellow_win);
 
@@ -146,10 +145,44 @@ int main(int argc, char **argv){
         }
     }
     SDL_Rect winner_rect;
-    winner_rect.x = 1360;
-    winner_rect.y = 400;
+    winner_rect.x = 1120;
+    winner_rect.y = 310;
     winner_rect.w = win_width;
     winner_rect.h = win_height;
+
+    //init audio device
+    SDL_AudioDeviceID dev;
+    SDL_AudioSpec want, have;
+    SDL_memset(&want, 0, sizeof(want));
+    want.freq = 44100;
+    want.format = AUDIO_S16;
+    want.channels = 2;
+    want.samples = 4096;
+    want.callback = 0;
+    dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+    if(!dev){
+        SDL_Log("failed to open audio: %s", SDL_GetError());
+    }else{
+        if(have.format != want.format){
+            SDL_Log("failed to open audio: %s", SDL_GetError());
+        }
+    }
+    //game loop audio
+    SDL_AudioSpec spec_loop;
+    Uint8* audio_loop_buf;
+    Uint32 audio_loop_len;
+    SDL_AudioSpec *data_loop = SDL_LoadWAV(GAME_LOOP, &spec_loop, &audio_loop_buf, &audio_loop_len);
+    if(!data_loop){
+        return error("unable to load audio file");  
+    }
+    //victory loop audio
+    SDL_AudioSpec spec_win;
+    Uint8* audio_win_buf;
+    Uint32 audio_win_len;
+    SDL_AudioSpec *data_win = SDL_LoadWAV(WIN_LOOP, &spec_win, &audio_win_buf, &audio_win_len);
+    if(!data_win){
+        return error("unable to load audio file");  
+    }
 
     //set game loop
     uint8_t turn_played = 1;
@@ -163,13 +196,19 @@ int main(int argc, char **argv){
         SDL_Event event;
         while(SDL_PollEvent(&event)){//escape
             if(event.type == SDL_QUIT){
+                SDL_CloseAudioDevice(dev);
+                SDL_FreeWAV(audio_loop_buf);
+                SDL_FreeWAV(audio_win_buf);
                 SDL_Quit();
                 return 0;
             }//input
             else if(event.type == SDL_KEYUP){
                 if(event.key.keysym.sym == SDLK_ESCAPE){
+                    SDL_CloseAudioDevice(dev);
+                    SDL_FreeWAV(audio_loop_buf);
+                    SDL_FreeWAV(audio_win_buf);
                     SDL_Quit();
-                    return 0;                    
+                    return 0;                  
             }else if(event.type == SDL_KEYUP && player_win == 0){
                 switch (event.key.keysym.sym){
                     case SDLK_1:
@@ -180,10 +219,14 @@ int main(int argc, char **argv){
                             for(int i = 0; i < 4; i++){
                                 int x = game_board->found_four_x[i];
                                 int y = game_board->found_four_y[i];
-                                SDL_Log("x %d, y %d\n", x, y);
                                 place_disc(game_board, y, x, 10);
-                                SDL_Log("%d\n", get_disc(game_board, y, x));
                             }
+                            SDL_PauseAudioDevice(dev, 1);
+                            SDL_CloseAudioDevice(dev);
+                            dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+                            SDL_QueueAudio(dev, (int16_t*)audio_win_buf, audio_win_len);
+                            SDL_PauseAudioDevice(dev, 0);
+
                             player_win = turn;
                         }
                         break;
@@ -195,10 +238,14 @@ int main(int argc, char **argv){
                             for(int i = 0; i < 4; i++){
                                 int x = game_board->found_four_x[i];
                                 int y = game_board->found_four_y[i];
-                                SDL_Log("x %d, y %d\n", x, y);
                                 place_disc(game_board, y, x, 10);
-                                SDL_Log("%d\n", get_disc(game_board, y, x));
                             }
+                            SDL_PauseAudioDevice(dev, 1);
+                            SDL_CloseAudioDevice(dev);
+                            dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+                            SDL_QueueAudio(dev, (int16_t*)audio_win_buf, audio_win_len);
+                            SDL_PauseAudioDevice(dev, 0);
+
                             player_win = turn;
                         }
                         break;
@@ -210,10 +257,14 @@ int main(int argc, char **argv){
                             for(int i = 0; i < 4; i++){
                                 int x = game_board->found_four_x[i];
                                 int y = game_board->found_four_y[i];
-                                SDL_Log("x %d, y %d\n", x, y);
                                 place_disc(game_board, y, x, 10);
-                                SDL_Log("%d\n", get_disc(game_board, y, x));
                             }
+                            SDL_PauseAudioDevice(dev, 1);
+                            SDL_CloseAudioDevice(dev);
+                            dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+                            SDL_QueueAudio(dev, (int16_t*)audio_win_buf, audio_win_len);
+                            SDL_PauseAudioDevice(dev, 0);
+
                             player_win = turn;
                         }
                         break;
@@ -225,10 +276,14 @@ int main(int argc, char **argv){
                             for(int i = 0; i < 4; i++){
                                 int x = game_board->found_four_x[i];
                                 int y = game_board->found_four_y[i];
-                                SDL_Log("x %d, y %d\n", x, y);
                                 place_disc(game_board, y, x, 10);
-                                SDL_Log("%d\n", get_disc(game_board, y, x));
                             }
+                            SDL_PauseAudioDevice(dev, 1);
+                            SDL_CloseAudioDevice(dev);
+                            dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+                            SDL_QueueAudio(dev, (int16_t*)audio_win_buf, audio_win_len);
+                            SDL_PauseAudioDevice(dev, 0);
+
                             player_win = turn;
                         }
                         break;
@@ -240,12 +295,15 @@ int main(int argc, char **argv){
                             for(int i = 0; i < 4; i++){
                                 int x = game_board->found_four_x[i];
                                 int y = game_board->found_four_y[i];
-                                SDL_Log("x %d, y %d\n", x, y);
                                 place_disc(game_board, y, x, 10);
-                                SDL_Log("%d\n", get_disc(game_board, y, x));
                             }
-                            player_win = turn;
-                        }
+                            SDL_PauseAudioDevice(dev, 1);
+                            SDL_CloseAudioDevice(dev);
+                            dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+                            SDL_QueueAudio(dev, (int16_t*)audio_win_buf, audio_win_len);
+                            SDL_PauseAudioDevice(dev, 0);
+
+                            player_win = turn;                        }
                         break; 
                     case SDLK_6:
                         turn = play_turn(game_board, 5, turn_played);
@@ -255,12 +313,15 @@ int main(int argc, char **argv){
                             for(int i = 0; i < 4; i++){
                                 int x = game_board->found_four_x[i];
                                 int y = game_board->found_four_y[i];
-                                SDL_Log("x %d, y %d\n", x, y);
                                 place_disc(game_board, y, x, 10);
-                                SDL_Log("%d\n", get_disc(game_board, y, x));
                             }
-                            player_win = turn;
-                        }
+                            SDL_PauseAudioDevice(dev, 1);
+                            SDL_CloseAudioDevice(dev);
+                            dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+                            SDL_QueueAudio(dev, (int16_t*)audio_win_buf, audio_win_len);
+                            SDL_PauseAudioDevice(dev, 0);
+
+                            player_win = turn;                        }
                         break; 
                     case SDLK_7:
                         turn = play_turn(game_board, 6, turn_played);
@@ -270,12 +331,15 @@ int main(int argc, char **argv){
                             for(int i = 0; i < 4; i++){
                                 int x = game_board->found_four_x[i];
                                 int y = game_board->found_four_y[i];
-                                SDL_Log("x %d, y %d\n", x, y);
                                 place_disc(game_board, y, x, 10);
-                                SDL_Log("%d\n", get_disc(game_board, y, x));
                             }
-                            player_win = turn;
-                        }
+                            SDL_PauseAudioDevice(dev, 1);
+                            SDL_CloseAudioDevice(dev);
+                            dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+                            SDL_QueueAudio(dev, (int16_t*)audio_win_buf, audio_win_len);
+                            SDL_PauseAudioDevice(dev, 0);
+
+                            player_win = turn;                        }
                         break;
                     default:
                         break;
@@ -286,7 +350,6 @@ int main(int argc, char **argv){
         //draw game board
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
         SDL_RenderClear(renderer);
-
         int max_y = BOARD_ROWS;
         int max_x = BOARD_COLS;
         int i = 0;
@@ -305,6 +368,13 @@ int main(int argc, char **argv){
                 i++;
             }
         }
+
+        //audio
+        if(player_win == 0){
+            SDL_QueueAudio(dev, (int16_t*)audio_loop_buf, audio_loop_len);
+            SDL_PauseAudioDevice(dev, 0);
+        }
+
         //game end
         if(player_win == 1){
             SDL_RenderCopy(renderer, red_win, NULL, &winner_rect);
@@ -317,9 +387,11 @@ int main(int argc, char **argv){
         SDL_RenderPresent(renderer);
     }
 
+    SDL_CloseAudioDevice(dev);
+    SDL_FreeWAV(audio_loop_buf);
+    SDL_FreeWAV(audio_win_buf);
     SDL_Quit();
     return 0;
 }
-
 //clang -c -o board.o .\board.c
 //clang -I .\SDL2-2.0.10\include\ -o main.exe main.c -L .\SDL2-2.0.10\lib\x64\ -l SDL2 .\cpu/board.c
